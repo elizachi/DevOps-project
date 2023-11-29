@@ -6,22 +6,46 @@ import { User } from '@entities/user.js';
 import { StatusCodes } from 'http-status-codes';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
-const fastify = require('fastify');
 
-const server = fastify({
-    logger:true
+/**
+ * Connect server to port
+ */
+const fastify = require('fastify')();
+
+fastify.listen({ port: 3000 }, err => {
+  if (err) throw err
+  console.log(`server listening on ${fastify.server.address().port}`)
 });
 
-server
-  .listen(3000)
-  .catch(console.error);
+/**
+ * Connect to database
+ */
+fastify.register(require('@fastify/postgres'), {
+  connectionString: 'postgres://postgres@localhost/postgres'
+});
 
-module.exports = { server };
+/**
+ * API routes
+ * Route for init data base
+ */
+fastify.get('/init_data_base', async (
+  request: FastifyRequest, reply: FastifyReply
+  ) => {
+
+  fastify.pg.query(
+    'CREATE TABLE IF NOT EXIST users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL,' +
+    'login VARCHAR(255) NOT NULL, password VARCHAR(255) NOT NULL, categories ENUM, reports(255)',
+    function onResult (result) {
+      console.log(result);
+      reply.status(200).send({message: 'Success!'});
+    }
+  );
+});
 
 /**
  * Registration
  */
-server.post('/api/register', async (
+fastify.post('/api/register', async (
   request: FastifyRequest, reply: FastifyReply
   ) => {
 
@@ -46,18 +70,40 @@ server.post('/api/register', async (
   }
 
   /**
-   * @todo check whether such a user already exists
+   * Check if user already exist
    */
+  fastify.pg.query(
+    `SELECT * FROM users WHERE login = ${reg.login} AND password = ${reg.password};`,
+    function onResult (err, result) {
+      console.log(result);
 
-  return reply
-  .status(200)
-  .send({message: 'Success!'});
+      if(result !== null && result !== undefined) {
+        reply
+        .status(409)
+        .send({message: 'User already exist'})
+      }
+    }
+  );
+
+  /**
+   * If everything is alright create new user with login and password
+   */
+  fastify.pg.query(
+    `INSERT INTO users (login, password) VALUES (${reg.login}, '${reg.password}')`,
+    function onResult (err, result) {
+      console.log(result);
+
+      return reply
+      .status(200)
+      .send({message: 'Success!'});
+    }
+  );
 });
 
 /**
  * Authtorization
  */
-server.post('/api/login', async (
+fastify.post('/api/login', async (
   request: FastifyRequest, reply: FastifyReply
   ) => {
 
@@ -73,8 +119,20 @@ server.post('/api/login', async (
     }
   
     /**
-     * @todo incorrect password
+     * Check password in database
      */
+    fastify.pg.query(
+      `SELECT * FROM users WHERE login = ${auth.login} AND password = ${auth.password};`,
+      function onResult (err, result) {
+        console.log(result);
+
+        if(result === null || result === undefined) {
+          reply
+          .status(401)
+          .send({message: 'Uncorrect login or password'})
+        }
+      }
+    );
   
     return reply
     .status(200)
@@ -84,8 +142,8 @@ server.post('/api/login', async (
 /**
  * Categories
  */
-server.get('/api/categories', async (
-  reply: FastifyReply
+fastify.get('/api/categories', async (
+  request: FastifyRequest, reply: FastifyReply
   ) => {
 
   return reply
@@ -96,7 +154,7 @@ server.get('/api/categories', async (
 /**
  * Expenses
  */
-server.get('/api/expenses/:id', async (
+fastify.get('/api/expenses/:id', async (
   request: FastifyRequest, reply: FastifyReply
   ) => {
 
@@ -112,12 +170,20 @@ server.get('/api/expenses/:id', async (
     }
 
     /**
-     * @todo check user id in database
+     * Check user id in database
      */
+    fastify.pg.query(
+      `SELECT * FROM users WHERE id = ${exp.uid};`,
+      function onResult (err, result) {
+        console.log(result);
 
-    /**
-     * @todo permission denied
-     */
+        if(result === null || result === undefined) {
+          reply
+          .status(404)
+          .send({message: `User with id = ${exp.uid} not found`})
+        }
+      }
+    );
 
     return reply
     .status(200)
@@ -125,7 +191,7 @@ server.get('/api/expenses/:id', async (
 
 });
 
-server.post('/api/expenses', async (
+fastify.post('/api/expenses', async (
   request: FastifyRequest, reply: FastifyReply
   ) => {
 
@@ -141,16 +207,36 @@ server.post('/api/expenses', async (
   }
 
   /**
-   * @todo search category by uid
-   */
+     * Check category in database
+     */
+  fastify.pg.query(
+    `SELECT * FROM users WHERE id = ${exp.category};`,
+    function onResult (err, result) {
+      console.log(result);
+
+      if(result === null || result === undefined) {
+        reply
+        .status(400)
+        .send({message: 'No such category'})
+      }
+    }
+  );
 
   /**
-   * @todo check user id in db
-   */
+     * Check user id in database
+     */
+  fastify.pg.query(
+    `SELECT * FROM users WHERE id = ${exp.id};`,
+    function onResult (err, result) {
+      console.log(result);
 
-  /**
-   * @todo permission denied
-   */
+      if(result === null || result === undefined) {
+        reply
+        .status(404)
+        .send({message: `User with id = ${exp.id} not found`})
+      }
+    }
+  );
 
   return reply
   .status(200)
@@ -158,7 +244,7 @@ server.post('/api/expenses', async (
 
 });
 
-server.get('/api/reports/:id', async (
+fastify.get('/api/reports/:id', async (
   request: FastifyRequest, reply: FastifyReply
   ) => {
     const usr = request.params as User;
@@ -173,29 +259,45 @@ server.get('/api/reports/:id', async (
     }
 
     /**
-     * @todo check user id in database
+     * Check user id in database
      */
+    fastify.pg.query(
+      `SELECT * FROM users WHERE id = ${usr.uid};`,
+      function onResult (err, result) {
+        console.log(result);
 
-    /**
-     * @todo permission denied
-     */
+        if(result === null || result === undefined) {
+          reply
+          .status(404)
+          .send({message: `User with id = ${usr.uid} not found`})
+        }
+      }
+    );
 
     return reply
     .status(200)
     .send({message: 'Success!'});
 });
 
-server.get('/api/reports/:user_id/:report_id', async (
-  reply: FastifyReply
+fastify.get('/api/reports/:user_id/:report_id', async (
+  request: FastifyRequest, reply: FastifyReply
   ) => {
-
+    const usr = request.params as User;
     /**
-     * @todo check user and report id in database
+     * Check user id in database
      */
+    fastify.pg.query(
+      `SELECT * FROM users WHERE id = ${usr.uid};`,
+      function onResult (err, result) {
+        console.log(result);
 
-    /**
-     * @todo permission denied
-     */
+        if(result === null || result === undefined) {
+          reply
+          .status(404)
+          .send({message: `User with id = ${usr.uid} not found`})
+        }
+      }
+    );
 
     return reply
     .status(200)
@@ -203,16 +305,27 @@ server.get('/api/reports/:user_id/:report_id', async (
     
 });
 
-server.post('/api/reports/:user_id', async (
-  reply: FastifyReply
+fastify.post('/api/reports/:user_id', async (
+  request: FastifyRequest, reply: FastifyReply
     ) => {
-    /**
-     * @todo check user and report id in database
-     */
 
+    const usr = request.params as User;
+ 
     /**
-     * @todo permission denied
+     * Check user id in database
      */
+    fastify.pg.query(
+      `SELECT * FROM users WHERE id = ${usr.uid};`,
+      function onResult (err, result) {
+        console.log(result);
+
+        if(result === null || result === undefined) {
+          reply
+          .status(404)
+          .send({message: `User with id = ${usr.uid} not found`})
+        }
+      }
+    );
 
     return reply
     .status(200)
