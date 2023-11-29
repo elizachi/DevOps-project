@@ -130,22 +130,24 @@ server.get('/api/reports/:id', async (request, reply) => {
         .status(200)
         .send({ message: 'Success!' });
 });
-server.get('/api/reports/:user_id/report_id', async (request, reply) => {
-    if (request.body === null) {
-        return reply
-            .status(400)
-            .send({ message: 'Bad request.' });
-    }
+server.get('/api/reports/:user_id/:report_id', async (reply) => {
+    /**
+     * @todo check user and report id in database
+     */
+    /**
+     * @todo permission denied
+     */
     return reply
         .status(200)
         .send({ message: 'Success!' });
 });
-server.post('/api/reports/:user_id', async (request, reply) => {
-    if (request.body === null) {
-        return reply
-            .status(400)
-            .send({ message: 'Bad request.' });
-    }
+server.post('/api/reports/:user_id', async (reply) => {
+    /**
+     * @todo check user and report id in database
+     */
+    /**
+     * @todo permission denied
+     */
     return reply
         .status(200)
         .send({ message: 'Success!' });

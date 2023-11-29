@@ -1,10 +1,10 @@
-import type { Auth } from './entities/auth.js';
-import type { Expenses } from './entities/expenses.js';
-import type { Categories } from './entities/categories.js';
-import type { Report } from './entities/report.js';
+import type { Auth } from '@entities/auth.js';
+import type { Expenses } from '@entities/expenses.js';
+import type { Categories } from '@entities/categories.js';
+import type { Report } from '@entities/report.js';
+import { User } from '@entities/user.js';
 import { StatusCodes } from 'http-status-codes';
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { User } from 'entities/user.js';
 
 const fastify = require('fastify');
 
