@@ -13,7 +13,7 @@ const server = fastify({
 });
 
 server
-  .listen(3002)
+  .listen(3000)
   .catch(console.error);
 
 module.exports = { server };
